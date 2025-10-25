@@ -38,7 +38,6 @@ const seedData = async () => {
     await User.findByIdAndUpdate(owner1._id, { shopId: shop1._id });
     console.log("Owner and Shop created and linked successfully.");
 
-    // Creates two sample employees
     const employee1 = await User.create({
       name: "Rahul Kumar",
       email: "rahul@example.com",
@@ -464,11 +463,15 @@ const seedData = async () => {
     ];
     const products = await Product.insertMany(productsData);
     shop1.products = products.map((p) => p._id);
-    await shop1.save(); // This saves the employees and products to the shop document
+    await shop1.save();
     console.log(`${products.length} products created.`);
 
     console.log("Generating 250 random orders...");
+
+    // Create a list of possible billers
+    const billerNames = [owner1.name, employee1.name, employee2.name];
     const ordersToCreate = [];
+
     const customerNames = [
       "Suresh",
       "Priya",
@@ -481,6 +484,7 @@ const seedData = async () => {
       "Rohan",
       "Walk-in",
     ];
+
     for (let i = 0; i < 250; i++) {
       let orderTotal = 0;
       const orderItems = [];
@@ -497,10 +501,16 @@ const seedData = async () => {
         });
         orderTotal += randomProduct.price * quantity;
       }
+
+      // Randomly select a biller for this order
+      const randomBiller =
+        billerNames[Math.floor(Math.random() * billerNames.length)];
+
       ordersToCreate.push({
         shopId: shop1._id,
         customerName:
           customerNames[Math.floor(Math.random() * customerNames.length)],
+        billerName: randomBiller,
         items: orderItems,
         total: orderTotal,
         date: getRandomDate(),
