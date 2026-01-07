@@ -1,11 +1,21 @@
-// backend/pages/api/shops/[shopId]/ai/chat.js
-
 import connectDB from "../../../../../lib/db.js";
 import Product from "../../../../../models/Product.js";
 import Order from "../../../../../models/Order.js";
 import User from "../../../../../models/User.js";
 import { authMiddleware } from "../../../../../lib/auth.js";
 import { getGeminiModel } from "../../../../../lib/gemini.js";
+
+// ✅ ADD THIS FUNCTION to clean markdown formatting
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*/g, "") // Remove bold **text**
+    .replace(/\*/g, "") // Remove italic *text*
+    .replace(/^#+\s/gm, "") // Remove # headers
+    .replace(/`/g, "") // Remove code blocks `
+    .replace(/~/g, "") // Remove strikethrough ~
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1") // Convert [text](url) to text
+    .trim();
+}
 
 async function handler(req, res) {
   if (req.method !== "POST") {
@@ -33,7 +43,6 @@ async function handler(req, res) {
       .limit(200)
       .lean();
 
-    // Get employees with salary data
     const employees = await User.find({ shopId, role: "employee" }).lean();
 
     // Date calculations
@@ -182,7 +191,7 @@ async function handler(req, res) {
       });
     });
 
-    // Product bundle analysis (frequently bought together)
+    // Product bundle analysis
     const productPairs = new Map();
     orders.forEach((order) => {
       const itemNames = order.items.map((item) => item.name);
@@ -227,7 +236,7 @@ async function handler(req, res) {
       .filter((p) => p.unitsSold === 0)
       .map((p) => `${p.name} (Stock: ${p.stock})`);
 
-    // Category performance this month vs last month
+    // Category performance
     const categoryStatsThisMonth = {};
     const categoryStatsLastMonth = {};
 
@@ -283,14 +292,14 @@ async function handler(req, res) {
       )}, Change: ${revenueGrowth}%`;
     });
 
-    const shopContext = `You are an AI business assistant for a retail shop. Answer the user's question using this comprehensive data:
+    const shopContext = `You are an AI business assistant for a retail shop. Answer the user's question using this data. Use plain text without markdown formatting (no asterisks, hashes, or special characters):
 
-**TODAY'S PERFORMANCE:**
+TODAY'S PERFORMANCE:
 - Revenue: ₹${todayRevenue.toFixed(2)}
 - Profit: ₹${todayProfit.toFixed(2)}
 - Orders: ${todayOrders.length}
 
-**THIS MONTH vs LAST MONTH:**
+THIS MONTH vs LAST MONTH:
 - This Month Revenue: ₹${thisMonthRevenue.toFixed(
       2
     )} | Last Month: ₹${lastMonthRevenue.toFixed(2)} | Change: ${revenueChange}%
@@ -301,29 +310,21 @@ async function handler(req, res) {
       lastMonthOrders.length
     }
 
-**CATEGORY PERFORMANCE (Month-over-Month):**
+CATEGORY PERFORMANCE (Month-over-Month):
 ${categoryComparison.join("\n")}
 
-**OVERALL STATISTICS:**
+OVERALL STATISTICS:
 - Total Products: ${products.length}
 - Total Orders: ${orders.length}
 - All-Time Revenue: ₹${totalRevenue.toFixed(2)}
 - All-Time Profit: ₹${totalProfit.toFixed(2)}
 
-**EMPLOYEE DATA:**
+EMPLOYEE DATA:
 - Total Employees: ${employees.length}
 - Total Monthly Salaries: ₹${totalMonthlySalary.toFixed(2)}
 - Labor Cost as % of Revenue: ${laborCostPercentage}%
-- Employee Details: ${employees
-      .map(
-        (e) =>
-          `${e.name} (₹${e.salary?.amount || 0}/month, Status: ${
-            e.salary?.status || "N/A"
-          })`
-      )
-      .join(", ")}
 
-**EMPLOYEE PERFORMANCE:**
+EMPLOYEE PERFORMANCE:
 ${employeePerformance
   .map(
     (emp, i) =>
@@ -331,20 +332,18 @@ ${employeePerformance
         emp.orderCount
       } orders, Revenue: ₹${emp.totalRevenue.toFixed(
         2
-      )}, Profit: ₹${emp.totalProfit.toFixed(2)}, Avg/Order: ₹${
-        emp.avgRevenuePerOrder
-      }`
+      )}, Profit: ₹${emp.totalProfit.toFixed(2)}`
   )
   .join("\n")}
 
-**PRODUCT BUNDLES (Frequently Bought Together):**
+PRODUCT BUNDLES (Frequently Bought Together):
 ${
   topBundles.length > 0
     ? topBundles.join("\n")
     : "No bundle patterns detected yet"
 }
 
-**TOP 10 BEST SELLING PRODUCTS:**
+TOP 10 BEST SELLING PRODUCTS:
 ${topSellingProducts
   .map(
     (p, i) =>
@@ -354,25 +353,25 @@ ${topSellingProducts
   )
   .join("\n")}
 
-**TOP 10 LEAST SELLING:**
+TOP 10 LEAST SELLING:
 ${leastSellingProducts
   .map((p, i) => `${i + 1}. ${p.name}: ${p.unitsSold} units, Stock: ${p.stock}`)
   .join("\n")}
 
-**NEVER SOLD (${neverSoldProducts.length} items):**
+NEVER SOLD (${neverSoldProducts.length} items):
 ${
   neverSoldProducts.length > 0
     ? neverSoldProducts.slice(0, 10).join(", ")
     : "All products have sales"
 }
 
-**TOP PROFIT PRODUCTS:**
+TOP PROFIT PRODUCTS:
 ${topProfitProducts
   .slice(0, 5)
   .map((p, i) => `${i + 1}. ${p.name}: ₹${p.profit.toFixed(2)}`)
   .join("\n")}
 
-**PROFIT MARGINS (Top 5):**
+PROFIT MARGINS (Top 5):
 ${productMargins
   .slice(0, 5)
   .map(
@@ -383,7 +382,7 @@ ${productMargins
   )
   .join("\n")}
 
-**LOW STOCK ALERTS:**
+LOW STOCK ALERTS:
 ${
   lowStockProducts.length > 0
     ? lowStockProducts
@@ -393,16 +392,19 @@ ${
     : "No low stock items"
 }
 
-**USER QUESTION:** ${userMessage}
+USER QUESTION: ${userMessage}
 
-Provide a clear, data-driven answer with specific numbers, product names, and employee names. Use Indian Rupees (₹). Be concise and actionable.`;
+Provide a clear, data-driven answer using PLAIN TEXT ONLY. No markdown formatting. Use numbered lists and line breaks. Use Indian Rupees (₹). Be concise and actionable.`;
 
     const model = getGeminiModel();
     const result = await model.generateContent(shopContext);
     const response = await result.response;
     const aiResponse = response.text();
 
-    res.status(200).json({ reply: aiResponse });
+    // ✅ CLEAN THE RESPONSE before sending
+    const cleanedResponse = cleanMarkdown(aiResponse);
+
+    res.status(200).json({ reply: cleanedResponse });
   } catch (error) {
     console.error("AI Chat Error:", error);
     res.status(500).json({
@@ -412,11 +414,7 @@ Provide a clear, data-driven answer with specific numbers, product names, and em
 }
 
 export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "1mb",
-    },
-  },
+  maxDuration: 10,
 };
 
 export default authMiddleware(handler);
