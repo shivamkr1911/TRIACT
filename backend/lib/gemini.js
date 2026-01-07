@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const getGeminiModel = () => {
   return genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     generationConfig: {
       temperature: 0.7,
       maxOutputTokens: 500, // ✅ Shorter responses = faster
