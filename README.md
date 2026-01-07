@@ -1,144 +1,187 @@
-# TRIACT - AI-Powered Inventory Management System
+# TRIACT - AI-Powered Retail Intelligence System
 
-TRIACT is a full-stack web application designed for small shop owners to manage inventory, track sales, and handle employees. It features a powerful AI assistant to answer complex questions about your inventory and provides AI-powered stock forecasting to predict when you'll run out of products.
+![TRIACT Banner](https://via.placeholder.com/1200x400?text=TRIACT+Retail+Intelligence+System)
 
-##  Features
+<div align="center">
 
-  * **Role-Based Authentication:** Separate accounts and interfaces for Owners and Employees.
-  * **Comprehensive Owner Dashboard:** At-a-glance KPIs for revenue, profit, and units sold, with charts for sales trends and category performance.
-  * **AI-Powered Stock Forecasting:** An "AI Forecast" column in the stock manager predicts the exact number of days until stock out for every product based on its 90-day sales velocity.
-  * **AI Chatbot Assistant:** An AI (powered by the Google Gemini API) that uses Retrieval-Augmented Generation (RAG) to answer natural language questions about your database (e.g., "Which snacks are low on stock?" or "What's Rahul's salary status?").
-  * **Full Product Management:** A dedicated page to add, edit (price, cost, stock), and filter all products.
-  * **Employee & Payroll Management:** A complete interface to add/remove employees and track their salary payments ("Paid" vs. "Due").
-  * **Point of Sale (POS):** A "Smart POS" page for creating orders with a fast, searchable product grid.
-  * **Automatic PDF Invoice Generation:** Invoices are automatically created, saved to the server, and linked to each order using `pdfkit`.
-  * **Real-time Notifications:** In-app alerts for owners when any product's stock runs low.
-  * **OCR Invoice Scanning:** Upload an image of an invoice, and the app will use Tesseract.js to extract items and check them against your inventory.
+![React](https://img.shields.io/badge/React-18-blue?logo=react&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/AI-Google_Gemini-8E75B2?logo=google&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css&logoColor=white)
 
-##  Tech Stack
+</div>
 
-  * **Frontend:** React (Vite), JavaScript, Tailwind CSS, Chart.js
-  * **Backend:** Next.js API Routes (Node.js)
-  * **Database:** MongoDB (with Mongoose)
-  * **Authentication:** JSON Web Tokens (JWT)
-  * **AI (RAG & Query):** Google Gemini API (`gemini-2.0-flash` model)
-  * **AI (OCR):** Tesseract.js
+---
 
-##  Getting Started
+## 📖 Overview
 
-### Prerequisites
+**TRIACT** is a modern, full-stack inventory and business management platform designed to digitize small retail operations. Unlike static POS systems, TRIACT integrates **Generative AI** and **Computer Vision** to act as an intelligent business partner.
 
-  * Node.js (v18 or higher)
-  * A MongoDB Atlas account (the free tier is sufficient)
-  * A **Google AI Studio** account for a **Gemini API Key**.
-  * Git
+It empowers shop owners to:
 
-### 1. Get your Gemini API Key
+- **Chat with their Data:** Ask natural language questions about sales, profit, and employee performance.
+- **Predict the Future:** Forecast stockouts days in advance using historical sales velocity.
+- **Automate Entry:** Digitize paper invoices instantly using OCR technology.
 
-This project relies on the Google Gemini API for its chatbot feature.
+---
 
-1.  Go to [Google AI Studio](https://aistudio.google.com/).
-2.  Log in and create a new project.
-3.  Click on **"Get API key"** and copy your new API key.
+## 🚀 Key Features
+
+### 🧠 Artificial Intelligence Suite
+
+- **RAG Chat Assistant:** Built on **Google Gemini 2.5 Flash**. It uses a **Retrieval-Augmented Generation (RAG)** architecture to fetch real-time database stats (revenue, stock, margins) and provide context-aware business answers in plain English.
+- **Stock Forecasting:** A dedicated algorithm analyzes the last 90 days of `Order` data to calculate average daily sales and predict the exact date a product will go out of stock.
+- **Smart OCR Scanner:** Powered by **Tesseract.js**. Upload an image of a supplier invoice, and the system automatically extracts item names and quantities to update inventory without manual typing.
+
+### 📊 Comprehensive Dashboard
+
+- **Owner View:** Real-time KPI cards for Revenue, Net Profit, and Units Sold. Includes visual charts for monthly revenue trends and category-wise sales distribution.
+- **Low Stock Alerts:** Automated system notifications trigger when product stock dips below defined thresholds.
+
+### ⚡ Point of Sale (POS) & Operations
+
+- **Smart Billing:** Fast, searchable product grid for rapid checkout.
+- **PDF Invoicing:** Automatically generates professional PDF invoices using `PDFKit`.
+  - **Dev Mode:** Saves locally to filesystem.
+  - **Prod Mode:** Uploads to **Vercel Blob** storage for permanent hosting.
+- **Employee Management:** Track staff profiles, monthly salaries, and payment status (Paid/Due/Overdue).
+
+---
+
+## 🏗️ Architecture & Tech Stack
+
+The application follows a **Decoupled Monolith** architecture where the frontend and backend are separate but designed to work seamlessly together.
+
+### Frontend (Client)
+
+- **Framework:** React 18 (Vite Build Tool)
+- **Styling:** Tailwind CSS (Utility-first) + Framer Motion (Animations)
+- **State Management:** React Context API + Custom Hooks (`useAuth`)
+- **HTTP Client:** Axios with Interceptors for JWT handling
+- **Visuals:** Chart.js for analytics, Lucide React for iconography
+
+### Backend (Server)
+
+- **Runtime:** Node.js
+- **Framework:** Next.js (Pages Router used as API Server)
+- **Database:** MongoDB Atlas (Mongoose ODM)
+- **Authentication:** JSON Web Tokens (JWT) with custom middleware (`authMiddleware`, `ownerMiddleware`)
+- **AI Engine:** Google Generative AI SDK (`@google/generative-ai`)
+
+---
+
+### Data Flow Diagram (RAG Chat)
+
+```mermaid
+graph LR
+    A[User Question] --> B(Backend API)
+    B --> C{Fetch DB Data}
+    C --> D[Products]
+    C --> E[Orders]
+    C --> F[Employees]
+    D & E & F --> G[Context Construction]
+    G --> H[Gemini API]
+    H --> I[Natural Language Answer]
+    I --> J[Frontend UI]
+```
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Prerequisites
+
+- Node.js (v18 or higher)
+- MongoDB Atlas Account (Free tier works)
+- Google AI Studio Account (for Gemini API Key)
 
 ### 2. Clone the Repository
 
 ```bash
-git clone [https://github.com/your-username/TRIACT.git](https://github.com/your-username/TRIACT.git)
+git clone https://github.com/your-username/TRIACT.git
 cd TRIACT
-````
+```
 
-### 3\. Backend Setup
-
-Navigate to the `backend` directory:
+### 3. Backend Setup
 
 ```bash
 cd backend
-```
-
-Install all necessary packages:
-
-```bash
 npm install
 ```
 
-Create your own environment file by copying the example:
-
-```bash
-cp .env.example .env
-```
-
-Open the new `.env` file and add your MongoDB Connection String, a unique JWT Secret, your new Gemini API Key, and the port.
+Create a `.env` file in `backend/`:
 
 ```ini
-MONGODB_URI="mongodb+srv://<user>:<password>@cluster0.mongodb.net/<dbname>?retryWrites=true&w=majority"
-JWT_SECRET="THIS_IS_A_SECRET_KEY_REPLACE_IT"
-GEMINI_API_KEY="AIzaSy...YOUR_GEMINI_API_KEY_HERE"
+MONGODB_URI="mongodb+srv://<username>:<password>@cluster.mongodb.net/triact?retryWrites=true&w=majority"
+JWT_SECRET="your_super_secret_jwt_key_here"
+GEMINI_API_KEY="AIzaSy...<your_gemini_api_key>"
 PORT=3001
 FRONTEND_URL="http://localhost:5173"
 ```
 
-### 4\. Frontend Setup
-
-In a separate terminal, navigate to the `frontend` directory:
-
-```bash
-cd frontend
-```
-
-Install all necessary packages:
-
-```bash
-npm install
-```
-
-### 5\. Running the Application
-
-**Seed the Database (First time only):**
-In your **backend** terminal, run the seed script. This will wipe the database and populate it with realistic sample data.
+Seed the Database:
 
 ```bash
 npm run seed
 ```
 
-**Start the Backend Server:**
-In your **backend** terminal, run:
+Start Backend:
 
 ```bash
 npm run dev
 ```
 
-The backend API will now be running at `http://localhost:3001`.
-
-**Start the Frontend Server:**
-In your **frontend** terminal, run:
+### 4. Frontend Setup
 
 ```bash
+cd ../frontend
+npm install
 npm run dev
 ```
 
-The React application will now be running at `http://localhost:5173`.
+---
 
-##  Test Credentials
+## 🧪 Test Credentials
 
-You can log in and explore the application using the pre-made sample accounts:
+| Role     | Email              | Password    | Access Level                            |
+| -------- | ------------------ | ----------- | --------------------------------------- |
+| Owner    | owner1@example.com | Password123 | Full Admin Access, Financials, Settings |
+| Employee | rahul@example.com  | Password123 | POS, Salary View, Inventory View        |
 
-**Owner Account:**
+---
 
-  * **Email:** `owner1@example.com`
-  * **Password:** `Password123`
+## 🔌 API Reference
 
-**Employee Account:**
+| Method | Endpoint                   | Description                 | Access |
+| ------ | -------------------------- | --------------------------- | ------ |
+| POST   | /api/auth/login            | Authenticate user & get JWT | Public |
+| GET    | /api/shops/:id/dashboard   | Fetch KPI stats             | Owner  |
+| POST   | /api/shops/:id/ai/chat     | Gemini RAG Chat             | Auth   |
+| POST   | /api/shops/:id/orders      | Create order & PDF          | Auth   |
+| POST   | /api/scan                  | OCR Scan                    | Auth   |
+| GET    | /api/shops/:id/ai/forecast | Stock prediction            | Owner  |
 
-  * **Email:** `rahul@example.com`
-  * **Password:** `Password123`
+---
 
-##  Example AI Assistant Questions
+## 🐛 Troubleshooting
 
-Try asking your AI chatbot these questions:
+- Ensure backend runs on port 3001
+- FRONTEND_URL must match Vite URL
+- MongoDB Atlas IP must be whitelisted
+- GEMINI_API_KEY must have quota
 
-> "Which products are low on stock?"
+---
 
-> "List all products in the 'Beverages' category."
+## 🤝 Contributing
 
-> "Which employees are currently due for payment?"
+- Fork the project
+- Create feature branch
+- Commit changes
+- Push and open PR
+
+---
+
+## 📄 License
+
+Distributed under the MIT License.
