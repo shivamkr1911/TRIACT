@@ -1,11 +1,19 @@
-// backend/middleware/cors.js
-import Cors from 'cors';
+import Cors from "cors";
 
-const allowedOrigin = process.env.FRONTEND_URL || 'https://triact-frontend.vercel.app'; // Read from env var
+const allowedOrigins = [
+  "https://triact-frontend.vercel.app",
+  "https://triact-five.vercel.app",
+];
 
 const cors = Cors({
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  origin: allowedOrigin,
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 });
 
