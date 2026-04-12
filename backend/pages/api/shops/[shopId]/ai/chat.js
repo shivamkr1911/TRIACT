@@ -5,15 +5,14 @@ import User from "../../../../../models/User.js";
 import { authMiddleware } from "../../../../../lib/auth.js";
 import { getGeminiModel } from "../../../../../lib/gemini.js";
 
-// ✅ ADD THIS FUNCTION to clean markdown formatting
 function cleanMarkdown(text) {
   return text
-    .replace(/\*\*/g, "") // Remove bold **text**
-    .replace(/\*/g, "") // Remove italic *text*
-    .replace(/^#+\s/gm, "") // Remove # headers
-    .replace(/`/g, "") // Remove code blocks `
-    .replace(/~/g, "") // Remove strikethrough ~
-    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1") // Convert [text](url) to text
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .replace(/^#+\s/gm, "")
+    .replace(/`/g, "")
+    .replace(/~/g, "")
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
     .trim();
 }
 
@@ -25,7 +24,7 @@ async function handler(req, res) {
   await connectDB();
   const { shopId } = req.query;
 
-  if (req.user.shopId !== shopId) {
+  if (req.user.shopId.toString() !== shopId) {
     return res.status(403).json({ message: "Access denied." });
   }
 
@@ -42,63 +41,58 @@ async function handler(req, res) {
       .sort({ date: -1 })
       .limit(200)
       .lean();
-
     const employees = await User.find({ shopId, role: "employee" }).lean();
 
-    // Date calculations
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastMonthStart = new Date(
       today.getFullYear(),
       today.getMonth() - 1,
-      1
+      1,
     );
     const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
     lastMonthEnd.setHours(23, 59, 59, 999);
 
-    // Filter orders by time period
     const todayOrders = orders.filter((o) => new Date(o.date) >= today);
     const thisMonthOrders = orders.filter(
-      (o) => new Date(o.date) >= thisMonthStart
+      (o) => new Date(o.date) >= thisMonthStart,
     );
     const lastMonthOrders = orders.filter((o) => {
       const orderDate = new Date(o.date);
       return orderDate >= lastMonthStart && orderDate <= lastMonthEnd;
     });
 
-    // Today's stats
     const todayRevenue = todayOrders.reduce(
       (sum, o) => sum + (o.total || 0),
-      0
+      0,
     );
     const todayProfit = todayOrders.reduce(
       (sum, o) => sum + (o.totalProfit || 0),
-      0
+      0,
     );
-
-    // This month stats
     const thisMonthRevenue = thisMonthOrders.reduce(
       (sum, o) => sum + (o.total || 0),
-      0
+      0,
     );
     const thisMonthProfit = thisMonthOrders.reduce(
       (sum, o) => sum + (o.totalProfit || 0),
-      0
+      0,
     );
-
-    // Last month stats
     const lastMonthRevenue = lastMonthOrders.reduce(
       (sum, o) => sum + (o.total || 0),
-      0
+      0,
     );
     const lastMonthProfit = lastMonthOrders.reduce(
       (sum, o) => sum + (o.totalProfit || 0),
-      0
+      0,
+    );
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalProfit = orders.reduce(
+      (sum, o) => sum + (o.totalProfit || 0),
+      0,
     );
 
-    // Month-over-month comparison
     const revenueChange =
       lastMonthRevenue > 0
         ? (
@@ -114,24 +108,15 @@ async function handler(req, res) {
           ).toFixed(1)
         : "0.0";
 
-    // Total stats
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalProfit = orders.reduce(
-      (sum, o) => sum + (o.totalProfit || 0),
-      0
-    );
-
-    // Employee salary analysis
     const totalMonthlySalary = employees.reduce(
       (sum, emp) => sum + (emp.salary?.amount || 0),
-      0
+      0,
     );
     const laborCostPercentage =
       thisMonthRevenue > 0
         ? ((totalMonthlySalary / thisMonthRevenue) * 100).toFixed(1)
         : "0.0";
 
-    // Employee performance tracking
     const employeeStats = {};
     orders.forEach((order) => {
       const biller = order.billerName;
@@ -163,10 +148,9 @@ async function handler(req, res) {
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
     const lowStockProducts = products.filter(
-      (p) => p.stock <= (p.lowStockThreshold || 10)
+      (p) => p.stock <= (p.lowStockThreshold || 10),
     );
 
-    // Product sales analysis
     const productStats = new Map();
     products.forEach((product) => {
       productStats.set(product.name, {
@@ -191,7 +175,6 @@ async function handler(req, res) {
       });
     });
 
-    // Product bundle analysis
     const productPairs = new Map();
     orders.forEach((order) => {
       const itemNames = order.items.map((item) => item.name);
@@ -212,11 +195,9 @@ async function handler(req, res) {
     const topSellingProducts = [...allProductStats]
       .sort((a, b) => b.unitsSold - a.unitsSold)
       .slice(0, 10);
-
     const leastSellingProducts = [...allProductStats]
       .sort((a, b) => a.unitsSold - b.unitsSold)
       .slice(0, 10);
-
     const topProfitProducts = [...allProductStats]
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 10);
@@ -236,7 +217,6 @@ async function handler(req, res) {
       .filter((p) => p.unitsSold === 0)
       .map((p) => `${p.name} (Stock: ${p.stock})`);
 
-    // Category performance
     const categoryStatsThisMonth = {};
     const categoryStatsLastMonth = {};
 
@@ -244,9 +224,8 @@ async function handler(req, res) {
       order.items.forEach((item) => {
         const product = products.find((p) => p.name === item.name);
         const category = product?.category || "Unknown";
-        if (!categoryStatsThisMonth[category]) {
+        if (!categoryStatsThisMonth[category])
           categoryStatsThisMonth[category] = { revenue: 0, profit: 0 };
-        }
         categoryStatsThisMonth[category].revenue += item.price * item.quantity;
         categoryStatsThisMonth[category].profit +=
           (item.price - item.cost) * item.quantity;
@@ -257,9 +236,8 @@ async function handler(req, res) {
       order.items.forEach((item) => {
         const product = products.find((p) => p.name === item.name);
         const category = product?.category || "Unknown";
-        if (!categoryStatsLastMonth[category]) {
+        if (!categoryStatsLastMonth[category])
           categoryStatsLastMonth[category] = { revenue: 0, profit: 0 };
-        }
         categoryStatsLastMonth[category].revenue += item.price * item.quantity;
         categoryStatsLastMonth[category].profit +=
           (item.price - item.cost) * item.quantity;
@@ -285,11 +263,7 @@ async function handler(req, res) {
               100
             ).toFixed(1)
           : "N/A";
-      return `${category}: This Month ₹${thisMonth.revenue.toFixed(
-        2
-      )}, Last Month ₹${lastMonth.revenue.toFixed(
-        2
-      )}, Change: ${revenueGrowth}%`;
+      return `${category}: This Month ₹${thisMonth.revenue.toFixed(2)}, Last Month ₹${lastMonth.revenue.toFixed(2)}, Change: ${revenueGrowth}%`;
     });
 
     const shopContext = `You are an AI business assistant for a retail shop. Answer the user's question using this data. Use plain text without markdown formatting (no asterisks, hashes, or special characters):
@@ -300,15 +274,9 @@ TODAY'S PERFORMANCE:
 - Orders: ${todayOrders.length}
 
 THIS MONTH vs LAST MONTH:
-- This Month Revenue: ₹${thisMonthRevenue.toFixed(
-      2
-    )} | Last Month: ₹${lastMonthRevenue.toFixed(2)} | Change: ${revenueChange}%
-- This Month Profit: ₹${thisMonthProfit.toFixed(
-      2
-    )} | Last Month: ₹${lastMonthProfit.toFixed(2)} | Change: ${profitChange}%
-- This Month Orders: ${thisMonthOrders.length} | Last Month: ${
-      lastMonthOrders.length
-    }
+- This Month Revenue: ₹${thisMonthRevenue.toFixed(2)} | Last Month: ₹${lastMonthRevenue.toFixed(2)} | Change: ${revenueChange}%
+- This Month Profit: ₹${thisMonthProfit.toFixed(2)} | Last Month: ₹${lastMonthProfit.toFixed(2)} | Change: ${profitChange}%
+- This Month Orders: ${thisMonthOrders.length} | Last Month: ${lastMonthOrders.length}
 
 CATEGORY PERFORMANCE (Month-over-Month):
 ${categoryComparison.join("\n")}
@@ -325,45 +293,19 @@ EMPLOYEE DATA:
 - Labor Cost as % of Revenue: ${laborCostPercentage}%
 
 EMPLOYEE PERFORMANCE:
-${employeePerformance
-  .map(
-    (emp, i) =>
-      `${i + 1}. ${emp.name}: ${
-        emp.orderCount
-      } orders, Revenue: ₹${emp.totalRevenue.toFixed(
-        2
-      )}, Profit: ₹${emp.totalProfit.toFixed(2)}`
-  )
-  .join("\n")}
+${employeePerformance.map((emp, i) => `${i + 1}. ${emp.name}: ${emp.orderCount} orders, Revenue: ₹${emp.totalRevenue.toFixed(2)}, Profit: ₹${emp.totalProfit.toFixed(2)}`).join("\n")}
 
 PRODUCT BUNDLES (Frequently Bought Together):
-${
-  topBundles.length > 0
-    ? topBundles.join("\n")
-    : "No bundle patterns detected yet"
-}
+${topBundles.length > 0 ? topBundles.join("\n") : "No bundle patterns detected yet"}
 
 TOP 10 BEST SELLING PRODUCTS:
-${topSellingProducts
-  .map(
-    (p, i) =>
-      `${i + 1}. ${p.name}: ${p.unitsSold} units, Revenue: ₹${p.revenue.toFixed(
-        2
-      )}, Profit: ₹${p.profit.toFixed(2)}`
-  )
-  .join("\n")}
+${topSellingProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.unitsSold} units, Revenue: ₹${p.revenue.toFixed(2)}, Profit: ₹${p.profit.toFixed(2)}`).join("\n")}
 
 TOP 10 LEAST SELLING:
-${leastSellingProducts
-  .map((p, i) => `${i + 1}. ${p.name}: ${p.unitsSold} units, Stock: ${p.stock}`)
-  .join("\n")}
+${leastSellingProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.unitsSold} units, Stock: ${p.stock}`).join("\n")}
 
 NEVER SOLD (${neverSoldProducts.length} items):
-${
-  neverSoldProducts.length > 0
-    ? neverSoldProducts.slice(0, 10).join(", ")
-    : "All products have sales"
-}
+${neverSoldProducts.length > 0 ? neverSoldProducts.slice(0, 10).join(", ") : "All products have sales"}
 
 TOP PROFIT PRODUCTS:
 ${topProfitProducts
@@ -376,9 +318,7 @@ ${productMargins
   .slice(0, 5)
   .map(
     (p, i) =>
-      `${i + 1}. ${p.name}: ${p.marginPercent}% margin (Price: ₹${
-        p.price
-      }, Cost: ₹${p.cost})`
+      `${i + 1}. ${p.name}: ${p.marginPercent}% margin (Price: ₹${p.price}, Cost: ₹${p.cost})`,
   )
   .join("\n")}
 
@@ -396,12 +336,15 @@ USER QUESTION: ${userMessage}
 
 Provide a clear, data-driven answer using PLAIN TEXT ONLY. No markdown formatting. Use numbered lists and line breaks. Use Indian Rupees (₹). Be concise and actionable.`;
 
-    const model = getGeminiModel();
-    const result = await model.generateContent(shopContext);
-    const response = await result.response;
-    const aiResponse = response.text();
+    // ✅ OpenRouter API call
+    const client = getGeminiModel();
+    const result = await client.chat.completions.create({
+      model: "openrouter/free",
+      messages: [{ role: "user", content: shopContext }],
+      max_tokens: 500,
+    });
 
-    // ✅ CLEAN THE RESPONSE before sending
+    const aiResponse = result.choices[0].message.content;
     const cleanedResponse = cleanMarkdown(aiResponse);
 
     res.status(200).json({ reply: cleanedResponse });
@@ -414,7 +357,7 @@ Provide a clear, data-driven answer using PLAIN TEXT ONLY. No markdown formattin
 }
 
 export const config = {
-  maxDuration: 10,
+  maxDuration: 30,
 };
 
 export default authMiddleware(handler);

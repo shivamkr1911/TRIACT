@@ -1,25 +1,15 @@
-// backend/lib/gemini.js
+import OpenAI from "openai";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = process.env.GEMINI_API_KEY;
-
+const API_KEY = process.env.OPENROUTER_API_KEY;
 if (!API_KEY) {
-  console.error("GEMINI_API_KEY is missing!");
-  throw new Error("GEMINI_API_KEY not found in environment");
+  console.error("OPENROUTER_API_KEY is missing!");
+  throw new Error("OPENROUTER_API_KEY not found in environment");
 }
 
-const genAI = new GoogleGenerativeAI(API_KEY);
+const client = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: API_KEY,
+});
 
-export const getGeminiModel = () => {
-  return genAI.getGenerativeModel({
-    model: "gemini-3-flash-preview",
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 500, // ✅ Shorter responses = faster
-      topP: 0.9,
-    },
-  });
-};
-
-export default genAI;
+export const getGeminiModel = () => client;
+export default client;
