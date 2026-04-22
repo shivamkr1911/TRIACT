@@ -2,8 +2,7 @@
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const allowedOrigin =
-  process.env.FRONTEND_URL || "https://triact-frontend.vercel.app";
+const allowedOrigin = process.env.FRONTEND_URL;
 
 if (!JWT_SECRET) {
   console.error(
