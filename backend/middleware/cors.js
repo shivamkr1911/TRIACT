@@ -2,9 +2,7 @@ import Cors from "cors";
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:3000",
-  "https://triact-frontend.vercel.app",
-  "https://triact-five.vercel.app",
+  "https://triact-bcj5.vercel.app",
 ];
 
 const cors = Cors({
