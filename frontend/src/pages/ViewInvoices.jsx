@@ -225,7 +225,7 @@ const ViewInvoices = () => {
                   </td>
                   <td className="px-6 py-4 text-center whitespace-nowrap">
                     <a
-                      href={invoice.pdfPath} // Use the Blob URL directly
+                      href={`${import.meta.env.VITE_API_BASE_URL || ""}${invoice.pdfPath}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`inline-flex items-center space-x-2 text-sm font-semibold ${
