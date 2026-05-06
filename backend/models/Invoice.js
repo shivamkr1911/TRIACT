@@ -13,9 +13,10 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    pdfPath: {
+    pdfData: {
       type: String,
       required: true,
+      description: "Base64 encoded PDF data",
     },
     customerName: {
       type: String,
@@ -35,7 +36,7 @@ const invoiceSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.Invoice ||

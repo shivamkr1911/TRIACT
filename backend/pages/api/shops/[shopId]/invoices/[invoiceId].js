@@ -1,19 +1,14 @@
-import fs from "fs";
-import path from "path";
-import connectDB from "../../../../../lib/db";
-import Invoice from "../../../../../models/Invoice";
-import { authMiddleware } from "../../../../../lib/auth";
-
+import connectDB from "../../../../../lib/db.js";
+import Invoice from "../../../../../models/Invoice.js";
+import { authMiddleware } from "../../../../../lib/auth.js";
 
 async function handler(req, res) {
-  
-  // --- ADDED: Handle OPTIONS explicitly if needed (though handleCors should cover it) ---
-   if (req.method === 'OPTIONS') {
-     console.log(`Invoice Route: Responding OK to OPTIONS preflight.`);
-     res.status(200).end();
-     return;
-   }
-  // --- END ADDED ---
+  // --- Handle OPTIONS explicitly if needed (though handleCors should cover it) ---
+  if (req.method === "OPTIONS") {
+    console.log(`Invoice Route: Responding OK to OPTIONS preflight.`);
+    res.status(200).end();
+    return;
+  }
 
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method Not Allowed" });
@@ -37,53 +32,34 @@ async function handler(req, res) {
       return res.status(404).json({ message: "Invoice not found." });
     }
 
-    // --- CHANGE: Construct path to /tmp ---
-    // Extract filename from the potentially misleading saved path
-    const filename = path.basename(invoice.pdfPath); // e.g., "invoice-68ffbabd4b5f34cd0ea95f0e.pdf"
-    const filePath = path.join('/tmp', 'invoices', filename); // Construct path to /tmp/invoices/FILENAME
-    // --- END CHANGE ---
-    console.log(`Attempting to read invoice PDF from: ${filePath}`);
-
-    if (!fs.existsSync(filePath)) {
-      console.error(
-        `Invoice file NOT FOUND in /tmp for invoice ${invoiceId} at path ${filePath}`
-      );
-      return res
-        .status(404)
-        .json({ message: "Invoice file not found on server (temporary storage). It might have expired or failed to save." });
+    if (!invoice.pdfData) {
+      return res.status(404).json({ message: "Invoice PDF data not found." });
     }
-    // --- ADD THESE HEADERS ---
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1.
-    res.setHeader('Pragma', 'no-cache'); // HTTP 1.0.
-    res.setHeader('Expires', '0'); // Proxies.
-    // --- END ADD HEADERS ---
 
-    // --- CHANGE: Stream the file ---
+    // --- Convert base64 back to buffer ---
+    const pdfBuffer = Buffer.from(invoice.pdfData, "base64");
+
+    // --- Set cache control headers ---
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    // --- Set PDF response headers ---
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="${filename}"` // Use the extracted filename
+      `inline; filename="invoice-${invoiceId}.pdf"`,
     );
+    res.setHeader("Content-Length", pdfBuffer.length);
 
-    const fileStream = fs.createReadStream(filePath);
-    // Handle errors during streaming
-    fileStream.on('error', (err) => {
-        console.error('Error streaming PDF file:', err);
-        // Check if headers were already sent
-        if (!res.headersSent) {
-            res.status(500).json({ message: 'Error reading invoice file.' });
-        } else {
-            // If headers are sent, we can't send a JSON error, just end the stream abruptly
-            res.end();
-        }
-    });
-    // --- END CHANGE ---
+    // --- Send PDF buffer ---
+    res.status(200).end(pdfBuffer);
   } catch (error) {
     console.error("Get Invoice [invoiceId] Error:", error);
     if (!res.headersSent) {
-        res.status(500).json({ message: "Internal Server Error" });
+      res.status(500).json({ message: "Internal Server Error" });
     } else {
-         res.end();
+      res.end();
     }
   }
 }

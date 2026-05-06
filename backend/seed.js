@@ -108,8 +108,10 @@ const seedDatabase = async () => {
 
     // Update users with shopId
     await User.updateMany(
-      { _id: { $in: [owner._id, employee1._id, employee2._id, employee3._id] } },
-      { shopId: shop._id }
+      {
+        _id: { $in: [owner._id, employee1._id, employee2._id, employee3._id] },
+      },
+      { shopId: shop._id },
     );
 
     console.log(`✅ Created shop: ${shop.shopName}`);
@@ -146,7 +148,12 @@ const seedDatabase = async () => {
       Groceries: [
         { name: "Tata Salt 1kg", price: 22, cost: 18, stock: 150 },
         { name: "Fortune Oil 1L", price: 180, cost: 150, stock: 55 },
-        { name: "India Gate Basmati Rice 5kg", price: 450, cost: 380, stock: 35 },
+        {
+          name: "India Gate Basmati Rice 5kg",
+          price: 450,
+          cost: 380,
+          stock: 35,
+        },
         { name: "Tata Tea Gold 500g", price: 240, cost: 200, stock: 40 },
         { name: "Aashirvaad Atta 5kg", price: 275, cost: 235, stock: 50 },
         { name: "Maggi Noodles Pack of 12", price: 144, cost: 120, stock: 9 }, // Low stock
@@ -163,10 +170,20 @@ const seedDatabase = async () => {
         { name: "Dettol Soap 125g", price: 45, cost: 35, stock: 90 },
         { name: "Head & Shoulders 340ml", price: 380, cost: 310, stock: 25 },
         { name: "Fair & Lovely 50g", price: 140, cost: 115, stock: 30 },
-        { name: "Parachute Coconut Oil 200ml", price: 110, cost: 88, stock: 45 },
+        {
+          name: "Parachute Coconut Oil 200ml",
+          price: 110,
+          cost: 88,
+          stock: 45,
+        },
       ],
       Stationery: [
-        { name: "Classmate Notebook 180 Pages", price: 50, cost: 38, stock: 60 },
+        {
+          name: "Classmate Notebook 180 Pages",
+          price: 50,
+          cost: 38,
+          stock: 60,
+        },
         { name: "Reynolds Pen Blue", price: 10, cost: 7, stock: 150 },
         { name: "Apsara Pencil Pack of 10", price: 40, cost: 30, stock: 80 },
         { name: "Fevicol 100ml", price: 35, cost: 28, stock: 45 },
@@ -227,7 +244,8 @@ const seedDatabase = async () => {
       // Select random products for this order
       const selectedProducts = [];
       for (let j = 0; j < numItems; j++) {
-        const randomProduct = allProducts[Math.floor(Math.random() * allProducts.length)];
+        const randomProduct =
+          allProducts[Math.floor(Math.random() * allProducts.length)];
         selectedProducts.push(randomProduct);
       }
 
@@ -253,7 +271,8 @@ const seedDatabase = async () => {
 
       const order = await Order.create({
         shopId: shop._id,
-        customerName: customerNames[Math.floor(Math.random() * customerNames.length)],
+        customerName:
+          customerNames[Math.floor(Math.random() * customerNames.length)],
         billerName: billers[Math.floor(Math.random() * billers.length)],
         items: orderItems,
         total: totalRevenue,
@@ -272,10 +291,14 @@ const seedDatabase = async () => {
     const invoices = [];
 
     for (const order of orders) {
+      // Create a dummy PDF base64 for seed data
+      const dummyPdfBase64 =
+        "JVBERi0xLjQKJeLjz9MNCjEgMCBvYmo8PC9UeXBlL0NhdGFsb2cvUGFnZXM+Pj5lbmRvYgoKdHJhaWwKPDwvU2l6ZSAyL1Jvb3QgMSAwIFI+PgpzdGFydHhyZWYKCiUlRU9G";
+
       const invoice = await Invoice.create({
         shopId: shop._id,
         orderId: order._id,
-        pdfPath: `/invoices/invoice-${order._id}.pdf`,
+        pdfData: dummyPdfBase64,
         customerName: order.customerName,
         billerName: order.billerName,
         total: order.total,
@@ -289,7 +312,9 @@ const seedDatabase = async () => {
     // ===== 6. CREATE NOTIFICATIONS =====
     console.log("\n🔔 Creating notifications...");
 
-    const lowStockProducts = allProducts.filter((p) => p.stock <= p.lowStockThreshold);
+    const lowStockProducts = allProducts.filter(
+      (p) => p.stock <= p.lowStockThreshold,
+    );
 
     const notifications = [];
 
@@ -328,7 +353,9 @@ const seedDatabase = async () => {
     console.log("=".repeat(50));
     console.log(`👤 Users: ${await User.countDocuments()}`);
     console.log(`   - Owners: ${await User.countDocuments({ role: "owner" })}`);
-    console.log(`   - Employees: ${await User.countDocuments({ role: "employee" })}`);
+    console.log(
+      `   - Employees: ${await User.countDocuments({ role: "employee" })}`,
+    );
     console.log(`🏪 Shops: ${await Shop.countDocuments()}`);
     console.log(`📦 Products: ${await Product.countDocuments()}`);
     console.log(`   - Categories: ${Object.keys(categories).length}`);
@@ -340,7 +367,10 @@ const seedDatabase = async () => {
 
     // Calculate and display statistics
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    const totalProfit = orders.reduce((sum, order) => sum + order.totalProfit, 0);
+    const totalProfit = orders.reduce(
+      (sum, order) => sum + order.totalProfit,
+      0,
+    );
     const avgOrderValue = totalRevenue / orders.length;
 
     console.log("\n💰 FINANCIAL SUMMARY");
@@ -348,7 +378,9 @@ const seedDatabase = async () => {
     console.log(`Total Revenue: ₹${totalRevenue.toFixed(2)}`);
     console.log(`Total Profit: ₹${totalProfit.toFixed(2)}`);
     console.log(`Average Order Value: ₹${avgOrderValue.toFixed(2)}`);
-    console.log(`Profit Margin: ${((totalProfit / totalRevenue) * 100).toFixed(2)}%`);
+    console.log(
+      `Profit Margin: ${((totalProfit / totalRevenue) * 100).toFixed(2)}%`,
+    );
     console.log("=".repeat(50));
 
     console.log("\n🔐 TEST CREDENTIALS");

@@ -26,7 +26,37 @@ It empowers shop owners to:
 
 ---
 
-## 🚀 Key Features
+## � Project Status
+
+### ✅ Recent Updates (May 2026)
+
+- **PDF Storage Architecture Upgraded**: Migrated from Vercel Blob storage to MongoDB base64 encoding
+  - 📦 PDFs now stored directly in database as base64 strings
+  - 🌍 Works identically on local development and Vercel production
+  - 🔒 Authenticated downloads via JWT verification
+  - 🚀 Zero external dependencies for PDF storage
+
+- **Invoice Download Feature**: Implemented secure authenticated PDF downloads
+  - Frontend button triggers programmatic download with auth token
+  - Backend converts base64 to buffer and streams PDF
+  - Full support for local and production environments
+
+### 🎯 Current Implementation Status
+
+| Feature                    | Status | Notes                                  |
+| -------------------------- | ------ | -------------------------------------- |
+| User Authentication        | ✅     | JWT-based with role-based access       |
+| Dashboard & KPIs           | ✅     | Real-time analytics for owners         |
+| POS & Billing              | ✅     | Order creation with stock management   |
+| PDF Invoice Generation     | ✅     | PDFKit with base64 MongoDB storage     |
+| Invoice Viewing & Download | ✅     | Authenticated secure downloads         |
+| Low Stock Alerts           | ✅     | Automatic notifications                |
+| Employee Management        | ✅     | Salary tracking and assignment         |
+| RAG Chat Assistant         | ✅     | Google Gemini integration              |
+| Stock Forecasting          | ✅     | 90-day historical analysis             |
+| OCR Invoice Scanner        | ✅     | Tesseract.js for document digitization |
+
+---
 
 ### 🧠 Artificial Intelligence Suite
 
@@ -43,8 +73,8 @@ It empowers shop owners to:
 
 - **Smart Billing:** Fast, searchable product grid for rapid checkout.
 - **PDF Invoicing:** Automatically generates professional PDF invoices using `PDFKit`.
-  - **Dev Mode:** Saves locally to filesystem.
-  - **Prod Mode:** Uploads to **Vercel Blob** storage for permanent hosting.
+  - **Storage:** PDFs stored as base64 in MongoDB for **persistent storage across all environments** (local, staging, production).
+  - **Download:** Secure authenticated download with JWT verification.
 - **Employee Management:** Track staff profiles, monthly salaries, and payment status (Paid/Due/Overdue).
 
 ---
@@ -85,6 +115,34 @@ graph LR
     H --> I[Natural Language Answer]
     I --> J[Frontend UI]
 ```
+
+### PDF Storage Architecture
+
+```mermaid
+graph TB
+    A[Create Order] --> B[Generate PDF Buffer]
+    B --> C[Convert to Base64]
+    C --> D[Store in MongoDB<br/>Invoice.pdfData]
+    D --> E[Stored Permanently]
+
+    F[View Invoice] --> G[Request PDF from API]
+    G --> H[Retrieve Base64 from DB]
+    H --> I[Convert Base64 to Buffer]
+    I --> J[Send as PDF Response]
+    J --> K[Download in Browser]
+
+    E -.->|Works on| L[Local Dev]
+    E -.->|Works on| M[Vercel Production]
+    E -.->|Works on| N[Any Hosting]
+```
+
+**Key Benefits:**
+
+- ✅ Works on Vercel (no filesystem persistence needed)
+- ✅ Works locally (same code path)
+- ✅ Permanent storage (survives function restarts)
+- ✅ Secure (JWT authentication required)
+- ✅ Simple (no external services)
 
 ---
 
@@ -148,28 +206,53 @@ npm run dev
 | -------- | ------------------ | ----------- | --------------------------------------- |
 | Owner    | owner1@example.com | Password123 | Full Admin Access, Financials, Settings |
 | Employee | rahul@example.com  | Password123 | POS, Salary View, Inventory View        |
+| Employee | priya@example.com  | Password123 | POS, Salary View, Inventory View        |
+| Employee | amit@example.com   | Password123 | POS, Salary View, Inventory View        |
+
+### Testing the PDF Invoice Feature
+
+1. **Login** with `owner1@example.com / Password123`
+2. **Navigate** to View Invoices page
+3. **Click "View PDF"** button on any invoice
+4. **PDF will download** to your computer (no new tab opens)
+5. **Open the downloaded PDF** to verify it displays correctly
+
+**Try on different environments:**
+
+- ✅ Local development: `http://localhost:5173`
+- ✅ Production: Deploy to Vercel and test same flow
 
 ---
 
 ## 🔌 API Reference
 
-| Method | Endpoint                   | Description                 | Access |
-| ------ | -------------------------- | --------------------------- | ------ |
-| POST   | /api/auth/login            | Authenticate user & get JWT | Public |
-| GET    | /api/shops/:id/dashboard   | Fetch KPI stats             | Owner  |
-| POST   | /api/shops/:id/ai/chat     | Gemini RAG Chat             | Auth   |
-| POST   | /api/shops/:id/orders      | Create order & PDF          | Auth   |
-| POST   | /api/scan                  | OCR Scan                    | Auth   |
-| GET    | /api/shops/:id/ai/forecast | Stock prediction            | Owner  |
+| Method | Endpoint                               | Description                   | Access |
+| ------ | -------------------------------------- | ----------------------------- | ------ |
+| POST   | /api/auth/login                        | Authenticate user & get JWT   | Public |
+| GET    | /api/shops/:shopId/dashboard           | Fetch KPI stats               | Owner  |
+| POST   | /api/shops/:shopId/ai/chat             | Gemini RAG Chat               | Auth   |
+| POST   | /api/shops/:shopId/orders              | Create order & generate PDF   | Auth   |
+| GET    | /api/shops/:shopId/invoices            | List all invoices             | Auth   |
+| GET    | /api/shops/:shopId/invoices/:invoiceId | Download PDF (Base64 from DB) | Auth   |
+| POST   | /api/scan                              | OCR Scan                      | Auth   |
+| GET    | /api/shops/:shopId/ai/forecast         | Stock prediction              | Owner  |
 
 ---
 
 ## 🐛 Troubleshooting
 
+### General Issues
+
 - Ensure backend runs on port 3001
 - FRONTEND_URL must match Vite URL
 - MongoDB Atlas IP must be whitelisted
 - GEMINI_API_KEY must have quota
+
+### PDF Invoice Issues
+
+- **"Invoice PDF data not found"**: Make sure orders are created after seed data is loaded
+- **Large database size**: Base64 encoding increases PDF size by ~33%. This is normal for small-to-medium invoice volumes
+- **Download fails**: Check browser console for CORS or authentication errors. Ensure JWT token is valid
 
 ---
 
@@ -179,9 +262,3 @@ npm run dev
 - Create feature branch
 - Commit changes
 - Push and open PR
-
----
-
-## 📄 License
-
-Distributed under the MIT License.

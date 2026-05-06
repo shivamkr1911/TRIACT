@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import shopService from "../services/shopService";
+import api from "../services/api.js";
 import { FileText, Search, Download, AlertTriangle } from "lucide-react"; // Import icons
 
 const ViewInvoices = () => {
@@ -8,6 +9,7 @@ const ViewInvoices = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
 
   // State for filters
   const [startDate, setStartDate] = useState("");
@@ -33,6 +35,35 @@ const ViewInvoices = () => {
       setLoading(false);
     }
   }, [user]);
+
+  // Handle PDF download with authentication
+  const handleDownloadPDF = async (invoiceId) => {
+    try {
+      setDownloadingInvoiceId(invoiceId);
+      const response = await api.get(
+        `/api/shops/${user.shopId}/invoices/${invoiceId}`,
+        {
+          responseType: "blob",
+        },
+      );
+
+      // Create a blob and download
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${invoiceId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download PDF:", err);
+      alert("Failed to download invoice. Please try again.");
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
 
   useEffect(() => {
     fetchInvoices();
@@ -224,25 +255,19 @@ const ViewInvoices = () => {
                     {formatCurrency(invoice.total)}
                   </td>
                   <td className="px-6 py-4 text-center whitespace-nowrap">
-                    <a
-                      href={`${import.meta.env.VITE_API_BASE_URL || ""}${invoice.pdfPath}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex items-center space-x-2 text-sm font-semibold ${
-                        invoice.pdfPath
-                          ? "text-indigo-600 hover:text-indigo-800"
-                          : "text-gray-400 cursor-not-allowed"
-                      }`}
-                      title={
-                        invoice.pdfPath
-                          ? `View PDF for Order ${invoice.orderId}`
-                          : "PDF not available"
-                      }
-                      onClick={(e) => !invoice.pdfPath && e.preventDefault()}
+                    <button
+                      onClick={() => handleDownloadPDF(invoice._id)}
+                      disabled={downloadingInvoiceId === invoice._id}
+                      className="inline-flex items-center space-x-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+                      title={`Download PDF for Order ${invoice.orderId}`}
                     >
                       <Download size={16} />
-                      <span>View PDF</span>
-                    </a>
+                      <span>
+                        {downloadingInvoiceId === invoice._id
+                          ? "Downloading..."
+                          : "View PDF"}
+                      </span>
+                    </button>
                   </td>
                 </tr>
               ))}

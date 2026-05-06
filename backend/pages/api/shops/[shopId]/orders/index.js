@@ -7,10 +7,7 @@ import Invoice from "../../../../../models/Invoice.js";
 import Notification from "../../../../../models/Notification.js";
 import Shop from "../../../../../models/Shop.js";
 import { authMiddleware } from "../../../../../lib/auth.js";
-import { put } from "@vercel/blob";
 import PDFDocument from "pdfkit";
-import fs from "fs";
-import path from "path";
 
 // ===== FIXED: Generate PDF and return buffer =====
 function generateInvoicePDF(order, shop) {
@@ -37,8 +34,15 @@ function generateInvoicePDF(order, shop) {
     doc.text(`Customer: ${order.customerName}`, 50, detailsTop + 15);
 
     // Date & Biller Info
-    doc.text(`Date: ${new Date(order.date).toLocaleString("en-IN")}`, 300, detailsTop, { align: "right" });
-    doc.text(`Billed by: ${order.billerName}`, 300, detailsTop + 15, { align: "right" });
+    doc.text(
+      `Date: ${new Date(order.date).toLocaleString("en-IN")}`,
+      300,
+      detailsTop,
+      { align: "right" },
+    );
+    doc.text(`Billed by: ${order.billerName}`, 300, detailsTop + 15, {
+      align: "right",
+    });
     doc.moveDown(3);
 
     // Table Header
@@ -48,16 +52,28 @@ function generateInvoicePDF(order, shop) {
     doc.text("Quantity", 250, tableTop, { width: 100, align: "right" });
     doc.text("Unit Price", 350, tableTop, { width: 100, align: "right" });
     doc.text("Total", 450, tableTop, { width: 100, align: "right" });
-    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+    doc
+      .moveTo(50, tableTop + 15)
+      .lineTo(550, tableTop + 15)
+      .stroke();
 
     // Table Rows
     let y = tableTop + 25;
     doc.font("Helvetica").fontSize(10);
     order.items.forEach((item) => {
       doc.text(item.name, 50, y);
-      doc.text(item.quantity.toString(), 250, y, { width: 100, align: "right" });
-      doc.text(formatCurrency(item.price), 350, y, { width: 100, align: "right" });
-      doc.text(formatCurrency(item.quantity * item.price), 450, y, { width: 100, align: "right" });
+      doc.text(item.quantity.toString(), 250, y, {
+        width: 100,
+        align: "right",
+      });
+      doc.text(formatCurrency(item.price), 350, y, {
+        width: 100,
+        align: "right",
+      });
+      doc.text(formatCurrency(item.quantity * item.price), 450, y, {
+        width: 100,
+        align: "right",
+      });
       y += 20;
     });
 
@@ -65,8 +81,13 @@ function generateInvoicePDF(order, shop) {
     doc.moveDown();
 
     // Grand Total
-    doc.font("Helvetica-Bold").fontSize(14)
-      .text(`Grand Total: ${formatCurrency(order.total)}`, 300, doc.y + 10, { width: 250, align: "right" });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(14)
+      .text(`Grand Total: ${formatCurrency(order.total)}`, 300, doc.y + 10, {
+        width: 250,
+        align: "right",
+      });
 
     doc.end();
   });
@@ -93,7 +114,9 @@ async function handler(req, res) {
 
   if (!req.user || !req.user.name) {
     console.error("[ORDER] Validation failed: billerName missing from token");
-    return res.status(400).json({ message: "Biller name not found in authentication token." });
+    return res
+      .status(400)
+      .json({ message: "Biller name not found in authentication token." });
   }
 
   try {
@@ -108,10 +131,16 @@ async function handler(req, res) {
     let totalProfit = 0;
     const orderItems = [];
 
-    console.log("[ORDER] Starting product validation for", items.length, "items");
+    console.log(
+      "[ORDER] Starting product validation for",
+      items.length,
+      "items",
+    );
 
     for (const item of items) {
-      console.log(`[ORDER] Processing product: ${item.productId}, quantity: ${item.quantity}`);
+      console.log(
+        `[ORDER] Processing product: ${item.productId}, quantity: ${item.quantity}`,
+      );
 
       const product = await Product.findOne({
         _id: item.productId,
@@ -125,10 +154,14 @@ async function handler(req, res) {
         });
       }
 
-      console.log(`[ORDER] Product "${product.name}" - Stock: ${product.stock}, Requested: ${item.quantity}`);
+      console.log(
+        `[ORDER] Product "${product.name}" - Stock: ${product.stock}, Requested: ${item.quantity}`,
+      );
 
       if (product.stock < item.quantity) {
-        console.error(`[ORDER] ERROR: Insufficient stock for "${product.name}"`);
+        console.error(
+          `[ORDER] ERROR: Insufficient stock for "${product.name}"`,
+        );
         return res.status(400).json({
           message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
         });
@@ -192,52 +225,26 @@ async function handler(req, res) {
 
     console.log("[ORDER] Order created:", newOrder._id);
 
-    // ===== PDF GENERATION =====
-    let pdfPath = "";
+    // ===== PDF GENERATION & STORAGE =====
     let savedInvoice = null;
-    const isDevelopment = process.env.NODE_ENV !== "production";
 
     try {
       console.log("[INVOICE] Generating PDF...");
       const invoiceBuffer = await generateInvoicePDF(newOrder, shop);
-      console.log("[INVOICE] PDF buffer generated, size:", invoiceBuffer.length);
+      console.log(
+        "[INVOICE] PDF buffer generated, size:",
+        invoiceBuffer.length,
+      );
 
-      if (isDevelopment) {
-        // DEVELOPMENT: Save to local file system
-        console.log("[INVOICE] Development mode: Saving PDF locally");
+      // Convert buffer to base64
+      const pdfBase64 = invoiceBuffer.toString("base64");
+      console.log("[INVOICE] PDF converted to base64, size:", pdfBase64.length);
 
-        const invoicesDir = path.join(process.cwd(), "public", "invoices");
-
-        if (!fs.existsSync(invoicesDir)) {
-          fs.mkdirSync(invoicesDir, { recursive: true });
-          console.log("[INVOICE] Created invoices directory");
-        }
-
-        const filename = `invoice-${newOrder._id}.pdf`;
-        const filepath = path.join(invoicesDir, filename);
-
-        fs.writeFileSync(filepath, invoiceBuffer);
-        pdfPath = `/invoices/${filename}`;
-
-        console.log("[INVOICE] PDF saved locally:", pdfPath);
-      } else {
-        // PRODUCTION: Upload to Vercel Blob
-        console.log("[INVOICE] Production mode: Uploading to Vercel Blob");
-
-        const blob = await put(`invoice-${newOrder._id}.pdf`, invoiceBuffer, {
-          access: "public",
-          contentType: "application/pdf",
-        });
-
-        pdfPath = blob.url;
-        console.log("[INVOICE] PDF uploaded:", pdfPath);
-      }
-
-      // Create invoice record
+      // Create invoice record with base64 PDF data
       savedInvoice = await Invoice.create({
         shopId: shopId,
         orderId: newOrder._id,
-        pdfPath: pdfPath,
+        pdfData: pdfBase64,
         customerName: newOrder.customerName,
         billerName: newOrder.billerName,
         total: newOrder.total,
@@ -247,19 +254,7 @@ async function handler(req, res) {
       console.log("[INVOICE] Invoice record created:", savedInvoice._id);
     } catch (pdfError) {
       console.error("[INVOICE] PDF generation failed:", pdfError);
-
-      // Create invoice record with error path
-      savedInvoice = await Invoice.create({
-        shopId: shopId,
-        orderId: newOrder._id,
-        pdfPath: "/invoices/error.pdf",
-        customerName: newOrder.customerName,
-        billerName: newOrder.billerName,
-        total: newOrder.total,
-        date: newOrder.date,
-      });
-      
-      pdfPath = "/invoices/error.pdf";
+      throw pdfError;
     }
 
     // ===== RETURN COMPLETE RESPONSE =====
@@ -267,7 +262,6 @@ async function handler(req, res) {
       message: "Order created successfully",
       order: newOrder,
       invoice: savedInvoice,
-      invoicePath: pdfPath,
     });
   } catch (error) {
     console.error("[ORDER] Error:", error);
