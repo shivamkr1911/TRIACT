@@ -1,13 +1,11 @@
 # TRIACT - AI-Powered Retail Intelligence System
 
-![TRIACT Banner](https://via.placeholder.com/1200x400?text=TRIACT+Retail+Intelligence+System)
-
 <div align="center">
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
-![Gemini AI](https://img.shields.io/badge/AI-Google_Gemini-8E75B2?logo=google&logoColor=white)
+![OpenRouter AI](https://img.shields.io/badge/AI-OpenRouter-FF6B35?logo=openrouter&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css&logoColor=white)
 
 </div>
@@ -52,7 +50,7 @@ It empowers shop owners to:
 | Invoice Viewing & Download | ✅     | Authenticated secure downloads         |
 | Low Stock Alerts           | ✅     | Automatic notifications                |
 | Employee Management        | ✅     | Salary tracking and assignment         |
-| RAG Chat Assistant         | ✅     | Google Gemini integration              |
+| RAG Chat Assistant         | ✅     | OpenRouter LLM integration             |
 | Stock Forecasting          | ✅     | 90-day historical analysis             |
 | OCR Invoice Scanner        | ✅     | Tesseract.js for document digitization |
 
@@ -60,7 +58,7 @@ It empowers shop owners to:
 
 ### 🧠 Artificial Intelligence Suite
 
-- **RAG Chat Assistant:** Built on **Google Gemini 2.5 Flash**. It uses a **Retrieval-Augmented Generation (RAG)** architecture to fetch real-time database stats (revenue, stock, margins) and provide context-aware business answers in plain English.
+- **RAG Chat Assistant:** Built on **OpenRouter LLM API**. It uses a **Retrieval-Augmented Generation (RAG)** architecture to fetch real-time database stats (revenue, stock, margins) and provide context-aware business answers in plain English.
 - **Stock Forecasting:** A dedicated algorithm analyzes the last 90 days of `Order` data to calculate average daily sales and predict the exact date a product will go out of stock.
 - **Smart OCR Scanner:** Powered by **Tesseract.js**. Upload an image of a supplier invoice, and the system automatically extracts item names and quantities to update inventory without manual typing.
 
@@ -97,7 +95,7 @@ The application follows a **Decoupled Monolith** architecture where the frontend
 - **Framework:** Next.js (Pages Router used as API Server)
 - **Database:** MongoDB Atlas (Mongoose ODM)
 - **Authentication:** JSON Web Tokens (JWT) with custom middleware (`authMiddleware`, `ownerMiddleware`)
-- **AI Engine:** Google Generative AI SDK (`@google/generative-ai`)
+- **AI Engine:** OpenRouter LLM API (`OPENROUTER_API_KEY`)
 
 ---
 
@@ -111,7 +109,7 @@ graph LR
     C --> E[Orders]
     C --> F[Employees]
     D & E & F --> G[Context Construction]
-    G --> H[Gemini API]
+    G --> H[OpenRouter LLM API]
     H --> I[Natural Language Answer]
     I --> J[Frontend UI]
 ```
@@ -152,7 +150,7 @@ graph TB
 
 - Node.js (v18 or higher)
 - MongoDB Atlas Account (Free tier works)
-- Google AI Studio Account (for Gemini API Key)
+- OpenRouter account (for LLM API key; get `OPENROUTER_API_KEY` from [openrouter.ai](https://openrouter.ai))
 
 ### 2. Clone the Repository
 
@@ -168,15 +166,17 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in `backend/`:
+Create a `.env` file in `backend/` (DO NOT commit this file to git):
 
 ```ini
 MONGODB_URI="mongodb+srv://<username>:<password>@cluster.mongodb.net/triact?retryWrites=true&w=majority"
 JWT_SECRET="your_super_secret_jwt_key_here"
-GEMINI_API_KEY="AIzaSy...<your_gemini_api_key>"
+OPENROUTER_API_KEY="sk-or-<your_openrouter_key>"
 PORT=3001
 FRONTEND_URL="http://localhost:5173"
 ```
+
+Tip: the repository `.gitignore` already ignores `*.env`. Add a `backend/.env.example` with the same keys and placeholder values for onboarding instead of committing real secrets.
 
 Seed the Database:
 
@@ -228,9 +228,11 @@ npm run dev
 
 | Method | Endpoint                               | Description                   | Access |
 | ------ | -------------------------------------- | ----------------------------- | ------ |
+| POST   | /api/auth/register                     | Create new user account       | Public |
 | POST   | /api/auth/login                        | Authenticate user & get JWT   | Public |
+| POST   | /api/auth/logout                       | Logout & invalidate session   | Auth   |
 | GET    | /api/shops/:shopId/dashboard           | Fetch KPI stats               | Owner  |
-| POST   | /api/shops/:shopId/ai/chat             | Gemini RAG Chat               | Auth   |
+| POST   | /api/shops/:shopId/ai/chat             | RAG Chat with LLM             | Auth   |
 | POST   | /api/shops/:shopId/orders              | Create order & generate PDF   | Auth   |
 | GET    | /api/shops/:shopId/invoices            | List all invoices             | Auth   |
 | GET    | /api/shops/:shopId/invoices/:invoiceId | Download PDF (Base64 from DB) | Auth   |
@@ -246,7 +248,8 @@ npm run dev
 - Ensure backend runs on port 3001
 - FRONTEND_URL must match Vite URL
 - MongoDB Atlas IP must be whitelisted
-- GEMINI_API_KEY must have quota
+- `OPENROUTER_API_KEY` must have quota and be correctly configured
+- **Note:** `@google/generative-ai` is listed in `package.json` but not currently used (AI calls use OpenRouter API via `openai` SDK). Can be safely removed or kept for future use.
 
 ### PDF Invoice Issues
 
