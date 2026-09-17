@@ -18,10 +18,16 @@ const logout = async () => {
   return response.data;
 };
 
+const getCurrentUser = async () => {
+  const response = await api.get("/api/auth/me");
+  return response.data.user;
+};
+
 const authService = {
   login,
   register,
   logout,
+  getCurrentUser,
 };
 
 export default authService;

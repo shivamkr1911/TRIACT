@@ -1,7 +1,7 @@
 import connectDB from "../../../lib/db.js";
 import Shop from "../../../models/Shop.js";
 import User from "../../../models/User.js";
-import { ownerMiddleware } from "../../../lib/auth.js";
+import { ownerMiddleware, signToken } from "../../../lib/auth.js";
 
 
 async function handler(req, res) {
@@ -35,11 +35,26 @@ async function handler(req, res) {
 
     const savedShop = await newShop.save();
 
-    await User.findByIdAndUpdate(ownerId, { shopId: savedShop._id });
+    const updatedUser = await User.findByIdAndUpdate(
+      ownerId,
+      { shopId: savedShop._id },
+      { new: true }
+    );
 
-    res
-      .status(201)
-      .json({ message: "Shop created successfully", shop: savedShop });
+    const token = signToken(updatedUser);
+
+    res.status(201).json({
+      message: "Shop created successfully",
+      shop: savedShop,
+      token,
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        shopId: updatedUser.shopId,
+      },
+    });
   } catch (error) {
     console.error("Shop Creation Error:", error);
     res.status(500).json({ message: "Internal Server Error" });

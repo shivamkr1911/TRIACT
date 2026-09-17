@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import shopService from "../services/shopService";
 import { AlertCircle, CheckCircle } from "lucide-react"; // Import icons
+import { useNavigate } from "react-router-dom";
 
 const CreateShopForm = () => {
-  const { user, token, logout } = useAuth();
+  const { user, token, updateAuthSession } = useAuth();
+  const navigate = useNavigate();
   const [shopName, setShopName] = useState("");
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
@@ -21,8 +23,14 @@ const CreateShopForm = () => {
       return;
     }
     try {
-      await shopService.createShop(token, { shopName, address });
+      const data = await shopService.createShop(token, { shopName, address });
+      if (data.token) {
+        updateAuthSession(data.token, data.shop);
+      }
       setIsShopCreated(true);
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1500);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create shop.");
     } finally {
@@ -33,7 +41,6 @@ const CreateShopForm = () => {
   // This is the "Success" screen after creation
   if (isShopCreated) {
     return (
-      // --- FIX: Removed min-h-[80vh] and added h-full ---
       <div className="flex items-center justify-center h-full px-4">
         <div className="w-full max-w-md p-8 text-center bg-white rounded-2xl shadow-xl border border-gray-200">
           <div className="text-green-500 mx-auto mb-4">
@@ -47,13 +54,13 @@ const CreateShopForm = () => {
             ready.
           </p>
           <p className="text-gray-500 mb-6 text-sm">
-            Log out and log back in to access your new dashboard.
+            Redirecting to your new dashboard...
           </p>
           <button
-            onClick={logout}
+            onClick={() => navigate("/dashboard")}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200"
           >
-            Log Out
+            Go to Dashboard
           </button>
         </div>
       </div>

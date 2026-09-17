@@ -93,7 +93,7 @@ const createShop = async (token, shopData) => {
   const response = await api.post(`/api/shops`, shopData, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return response.data.shop;
+  return response.data;
 };
 
 const getInvoices = async (shopId) => {

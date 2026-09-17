@@ -114,6 +114,23 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null); // Clear token from API headers
   };
 
+  const updateAuthSession = useCallback((newToken, newShopDetails) => {
+    if (newToken) {
+      localStorage.setItem("token", newToken);
+      setToken(newToken);
+      setAuthToken(newToken);
+      try {
+        const decodedUser = jwtDecode(newToken);
+        setUser(decodedUser);
+      } catch (e) {
+        console.error("Failed to decode token:", e);
+      }
+    }
+    if (newShopDetails) {
+      setShopDetails(newShopDetails);
+    }
+  }, []);
+
   // Memoize context value to prevent unnecessary re-renders
   const authContextValue = useMemo(
     () => ({
@@ -125,8 +142,9 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       setShopDetails, // Keep this if needed elsewhere
+      updateAuthSession,
     }),
-    [user, token, shopDetails, loading] // Dependencies for memoization
+    [user, token, shopDetails, loading, updateAuthSession] // Dependencies for memoization
   );
 
   return (

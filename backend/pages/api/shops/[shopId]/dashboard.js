@@ -47,22 +47,18 @@ async function handler(req, res) {
       },
       { $unwind: "$items" },
       {
-        $lookup: {
-          from: "products",
-          localField: "items.productId",
-          foreignField: "_id",
-          as: "productDetails",
-        },
-      },
-      { $unwind: "$productDetails" },
-      {
         $group: {
           _id: null,
           totalRevenue: {
             $sum: { $multiply: ["$items.quantity", "$items.price"] },
           },
           totalCost: {
-            $sum: { $multiply: ["$items.quantity", "$productDetails.cost"] },
+            $sum: {
+              $multiply: [
+                "$items.quantity",
+                { $ifNull: ["$items.cost", 0] },
+              ],
+            },
           },
           unitsSold: { $sum: "$items.quantity" },
         },
@@ -101,10 +97,20 @@ async function handler(req, res) {
           as: "productDetails",
         },
       },
-      { $unwind: "$productDetails" },
+      {
+        $unwind: {
+          path: "$productDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $group: {
-          _id: "$productDetails.category",
+          _id: {
+            $ifNull: [
+              "$items.category",
+              { $ifNull: ["$productDetails.category", "Other / Deleted Product"] },
+            ],
+          },
           totalSales: {
             $sum: { $multiply: ["$items.quantity", "$items.price"] },
           },

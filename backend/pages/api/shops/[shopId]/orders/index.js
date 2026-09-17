@@ -8,6 +8,7 @@ import Notification from "../../../../../models/Notification.js";
 import Shop from "../../../../../models/Shop.js";
 import { authMiddleware } from "../../../../../lib/auth.js";
 import PDFDocument from "pdfkit";
+import mongoose from "mongoose";
 
 // ===== FIXED: Generate PDF and return buffer =====
 function generateInvoicePDF(order, shop) {
@@ -108,16 +109,38 @@ async function handler(req, res) {
   }
 
   if (!items || !Array.isArray(items) || items.length === 0) {
-    console.error("[ORDER] Validation failed: items is invalid");
     return res.status(400).json({ message: "Order must contain items." });
   }
 
   if (!req.user || !req.user.name) {
-    console.error("[ORDER] Validation failed: billerName missing from token");
     return res
       .status(400)
       .json({ message: "Biller name not found in authentication token." });
   }
+
+  // Validate quantities and consolidate duplicate productIds
+  const consolidatedMap = new Map();
+  for (const item of items) {
+    if (!item.productId) {
+      return res.status(400).json({ message: "Each item must have a valid productId." });
+    }
+    const qty = Number(item.quantity);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      return res.status(400).json({
+        message: `Quantity for all items must be a positive whole number. Invalid quantity received: ${item.quantity}`,
+      });
+    }
+
+    const key = item.productId.toString();
+    consolidatedMap.set(key, (consolidatedMap.get(key) || 0) + qty);
+  }
+
+  const consolidatedItems = Array.from(consolidatedMap.entries()).map(([productId, quantity]) => ({
+    productId,
+    quantity,
+  }));
+
+  const decrementedProducts = [];
 
   try {
     // ===== FETCH SHOP DETAILS =====
@@ -126,73 +149,56 @@ async function handler(req, res) {
       return res.status(404).json({ message: "Shop not found" });
     }
 
-    // Validate and prepare order items
-    let total = 0;
-    let totalProfit = 0;
-    const orderItems = [];
-
-    console.log(
-      "[ORDER] Starting product validation for",
-      items.length,
-      "items",
-    );
-
-    for (const item of items) {
-      console.log(
-        `[ORDER] Processing product: ${item.productId}, quantity: ${item.quantity}`,
-      );
-
-      const product = await Product.findOne({
-        _id: item.productId,
-        shopId: shopId,
-      });
-
-      if (!product) {
-        console.error(`[ORDER] ERROR: Product ${item.productId} not found`);
-        return res.status(400).json({
-          message: `Product not found: ${item.productId}`,
-        });
+    // Atomically decrement stock for each product; rollback if any fails
+    for (const item of consolidatedItems) {
+      if (!mongoose.Types.ObjectId.isValid(item.productId)) {
+        // Rollback already deducted products
+        for (const prev of decrementedProducts) {
+          await Product.findByIdAndUpdate(prev.productId, { $inc: { stock: prev.quantity } });
+        }
+        return res.status(400).json({ message: `Invalid product ID: ${item.productId}` });
       }
 
-      console.log(
-        `[ORDER] Product "${product.name}" - Stock: ${product.stock}, Requested: ${item.quantity}`,
+      const updatedProduct = await Product.findOneAndUpdate(
+        {
+          _id: item.productId,
+          shopId: shopId,
+          stock: { $gte: item.quantity },
+        },
+        {
+          $inc: { stock: -item.quantity },
+        },
+        { new: true }
       );
 
-      if (product.stock < item.quantity) {
-        console.error(
-          `[ORDER] ERROR: Insufficient stock for "${product.name}"`,
-        );
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
-        });
+      if (!updatedProduct) {
+        // Insufficient stock or product not found -> Rollback previous decrements
+        for (const prev of decrementedProducts) {
+          await Product.findByIdAndUpdate(prev.productId, { $inc: { stock: prev.quantity } });
+        }
+
+        const existing = await Product.findOne({ _id: item.productId, shopId: shopId });
+        if (!existing) {
+          return res.status(404).json({ message: `Product not found: ${item.productId}` });
+        } else {
+          return res.status(400).json({
+            message: `Insufficient stock for ${existing.name}. Available: ${existing.stock}, Requested: ${item.quantity}`,
+          });
+        }
       }
 
-      const itemTotal = product.price * item.quantity;
-      const itemCost = product.cost * item.quantity;
-      const itemProfit = itemTotal - itemCost;
-
-      orderItems.push({
-        productId: product._id,
-        name: product.name,
+      decrementedProducts.push({
+        productId: updatedProduct._id,
         quantity: item.quantity,
-        price: product.price,
-        cost: product.cost,
+        product: updatedProduct,
       });
-
-      total += itemTotal;
-      totalProfit += itemProfit;
-
-      // Update stock
-      product.stock -= item.quantity;
-      await product.save();
-      console.log(`[ORDER] Updated stock for "${product.name}"`);
 
       // Create low stock notification if needed
-      if (product.stock <= product.lowStockThreshold) {
+      if (updatedProduct.stock <= (updatedProduct.lowStockThreshold || 10)) {
         const existingNotification = await Notification.findOne({
           shopId: shopId,
           message: {
-            $regex: `Low stock alert: ${product.name}`,
+            $regex: `Low stock alert: ${updatedProduct.name}`,
             $options: "i",
           },
           isRead: false,
@@ -201,21 +207,41 @@ async function handler(req, res) {
         if (!existingNotification) {
           await Notification.create({
             shopId: shopId,
-            message: `Low stock alert: ${product.name} has only ${product.stock} units left`,
+            message: `Low stock alert: ${updatedProduct.name} has only ${updatedProduct.stock} units left`,
             isRead: false,
           });
-          console.log(`[ORDER] Created low stock notification`);
         }
       }
     }
 
-    console.log("[ORDER] All products validated. Creating order...");
-    console.log("[ORDER] Total:", total, "Profit:", totalProfit);
+    // Build order items using the locked product prices and snapshot categories
+    let total = 0;
+    let totalProfit = 0;
+    const orderItems = [];
+
+    for (const entry of decrementedProducts) {
+      const { product, quantity } = entry;
+      const itemTotal = product.price * quantity;
+      const itemCost = (product.cost || 0) * quantity;
+      const itemProfit = itemTotal - itemCost;
+
+      orderItems.push({
+        productId: product._id,
+        name: product.name,
+        category: product.category || "General",
+        quantity: quantity,
+        price: product.price,
+        cost: product.cost || 0,
+      });
+
+      total += itemTotal;
+      totalProfit += itemProfit;
+    }
 
     // Create order
     const newOrder = await Order.create({
       shopId: shopId,
-      customerName: customerName || "Walk-in Customer",
+      customerName: customerName ? customerName.trim() : "Walk-in Customer",
       billerName: req.user.name,
       items: orderItems,
       total: total,
@@ -223,24 +249,13 @@ async function handler(req, res) {
       date: new Date(),
     });
 
-    console.log("[ORDER] Order created:", newOrder._id);
-
     // ===== PDF GENERATION & STORAGE =====
     let savedInvoice = null;
 
     try {
-      console.log("[INVOICE] Generating PDF...");
       const invoiceBuffer = await generateInvoicePDF(newOrder, shop);
-      console.log(
-        "[INVOICE] PDF buffer generated, size:",
-        invoiceBuffer.length,
-      );
-
-      // Convert buffer to base64
       const pdfBase64 = invoiceBuffer.toString("base64");
-      console.log("[INVOICE] PDF converted to base64, size:", pdfBase64.length);
 
-      // Create invoice record with base64 PDF data
       savedInvoice = await Invoice.create({
         shopId: shopId,
         orderId: newOrder._id,
@@ -250,10 +265,14 @@ async function handler(req, res) {
         total: newOrder.total,
         date: newOrder.date,
       });
-
-      console.log("[INVOICE] Invoice record created:", savedInvoice._id);
     } catch (pdfError) {
-      console.error("[INVOICE] PDF generation failed:", pdfError);
+      console.error("[INVOICE] PDF generation failed, rolling back order and stock:", pdfError);
+      // Rollback created order
+      await Order.findByIdAndDelete(newOrder._id);
+      // Rollback stock
+      for (const prev of decrementedProducts) {
+        await Product.findByIdAndUpdate(prev.productId, { $inc: { stock: prev.quantity } });
+      }
       throw pdfError;
     }
 
@@ -265,6 +284,15 @@ async function handler(req, res) {
     });
   } catch (error) {
     console.error("[ORDER] Error:", error);
+    // Ensure rollback on any unexpected error
+    for (const prev of decrementedProducts) {
+      try {
+        await Product.findByIdAndUpdate(prev.productId, { $inc: { stock: prev.quantity } });
+      } catch (rollbackErr) {
+        console.error("[ORDER] Rollback error:", rollbackErr);
+      }
+    }
+
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message,

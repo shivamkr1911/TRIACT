@@ -17,7 +17,9 @@ async function handler(req, res) {
   await connectDB();
 
   try {
-    const invoices = await Invoice.find({ shopId }).sort({ createdAt: -1 });
+    const invoices = await Invoice.find({ shopId })
+      .select("-pdfData")
+      .sort({ createdAt: -1 });
     res.status(200).json({ invoices });
   } catch (error) {
     console.error("Get Invoices Error:", error);

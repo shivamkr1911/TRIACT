@@ -1,9 +1,30 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { DollarSign, CheckCircle, AlertCircle } from "lucide-react"; // Using lucide-react
+import authService from "../services/authService";
+import { DollarSign, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"; // Using lucide-react
 
 const SalaryInfo = () => {
   const { user } = useAuth();
+  const [profile, setProfile] = useState(user);
+  const [loading, setLoading] = useState(false);
+
+  const fetchLiveProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const liveUser = await authService.getCurrentUser();
+      if (liveUser) {
+        setProfile(liveUser);
+      }
+    } catch (err) {
+      console.error("Failed to fetch live salary info:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveProfile();
+  }, [fetchLiveProfile]);
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("en-IN", {
@@ -11,7 +32,8 @@ const SalaryInfo = () => {
       currency: "INR",
     }).format(amount || 0);
 
-  const isPaid = user?.salary?.status === "paid";
+  const salaryData = profile?.salary || user?.salary;
+  const isPaid = salaryData?.status === "paid";
 
   return (
     <div className="max-w-xl mx-auto pt-8">
@@ -32,10 +54,18 @@ const SalaryInfo = () => {
                   Your Monthly Salary
                 </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {formatCurrency(user?.salary?.amount)}
+                  {formatCurrency(salaryData?.amount)}
                 </p>
               </div>
             </div>
+            <button
+              onClick={fetchLiveProfile}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg transition hover:bg-white shadow-sm border border-gray-200"
+              title="Refresh Salary Info"
+            >
+              <RefreshCw size={18} className={loading ? "animate-spin text-indigo-600" : ""} />
+            </button>
           </div>
         </div>
 

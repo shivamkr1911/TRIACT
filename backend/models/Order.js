@@ -24,6 +24,10 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    category: { // Product category at time of sale
+      type: String,
+      default: "General",
+    },
     // -----------
   },
   { _id: false }
