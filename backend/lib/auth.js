@@ -18,8 +18,27 @@ if (!allowedOrigin) {
 }
 
 export const authMiddleware = (handler) => async (req, res) => {
+  const origin = req.headers.origin;
+
+  const isOriginAllowed = (org) => {
+    if (!org) return true;
+    if (!allowedOrigin) return true;
+    if (org === allowedOrigin) return true;
+    // Allow all Vercel deployment/preview domains (e.g. triact-bcj5.vercel.app) and local development
+    if (
+      org.endsWith(".vercel.app") ||
+      org.includes("localhost") ||
+      org.includes("127.0.0.1")
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const effectiveOrigin = origin && isOriginAllowed(origin) ? origin : (allowedOrigin || "*");
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Access-Control-Allow-Origin", effectiveOrigin);
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET,OPTIONS,PATCH,DELETE,POST,PUT",
