@@ -106,9 +106,52 @@ const getForecast = async (shopId) => {
   return response.data.products;
 };
 
-const getAiChatResponse = async (shopId, query) => {
-  const response = await api.post(`/api/shops/${shopId}/ai/chat`, { query });
+const getAiChatResponse = async (shopId, query, history = []) => {
+  const response = await api.post(`/api/shops/${shopId}/ai/chat`, { query, history });
   return response.data;
+};
+
+const streamAiChatResponse = async (shopId, query, history = [], onChunk) => {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`/api/shops/${shopId}/ai/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ query, history, stream: true }),
+  });
+
+  if (!response.ok) {
+    let errorMsg = "I'm having trouble analyzing the store data right now. Please try again in a moment.";
+    try {
+      const data = await response.json();
+      if (data?.message || data?.reply) errorMsg = data.message || data.reply;
+    } catch (_) {}
+    throw new Error(errorMsg);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await response.json();
+    const fullText = data.reply || data.answer || "";
+    if (onChunk) onChunk(fullText);
+    return fullText;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let accumulated = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    accumulated += chunk;
+    if (onChunk) onChunk(accumulated);
+  }
+
+  return accumulated;
 };
 
 const shopService = {
@@ -130,6 +173,7 @@ const shopService = {
   getInvoices,
   getForecast,
   getAiChatResponse,
+  streamAiChatResponse,
 };
 
 export default shopService;
