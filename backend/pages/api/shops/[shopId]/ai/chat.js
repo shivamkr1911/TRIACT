@@ -139,6 +139,11 @@ async function handler(req, res) {
     );
     const totalInventoryUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
 
+    // Full compact product stock list for accurate arbitrary stock queries
+    const allProductsStockSummary = sortedByStockAsc
+      .map((p) => `${p.name} (${p.stock} units, ₹${p.price})`)
+      .join(", ");
+
     // 5. Product Sales Velocity & Margins
     const productStats = new Map();
     products.forEach((product) => {
@@ -386,6 +391,9 @@ CURRENT INVENTORY & STOCK LEVELS:
 - Total Stock Units: ${formatNum(totalInventoryUnits)}
 - Out of Stock Items (${outOfStockProducts.length}): ${outOfStockProducts.length > 0 ? outOfStockProducts.map((p) => p.name).join(", ") : "None (All products in stock)"}
 - Low Stock Items (${lowStockProducts.length}): ${lowStockProducts.length > 0 ? lowStockProducts.map((p) => `${p.name} (${p.stock} left, Threshold: ${p.lowStockThreshold || 10})`).join(", ") : "None"}
+
+COMPLETE STORE INVENTORY (Sorted ascending by stock):
+${allProductsStockSummary || "No products found"}
 
 RESTOCK INTELLIGENCE & RUNWAY (Based on Sales Velocity):
 ${
