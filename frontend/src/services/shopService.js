@@ -106,6 +106,12 @@ const getForecast = async (shopId) => {
   return response.data.products;
 };
 
+const getBaseApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl || envUrl === "/") return "";
+  return envUrl.replace(/\/$/, "");
+};
+
 const getAiChatResponse = async (shopId, query, history = []) => {
   const response = await api.post(`/api/shops/${shopId}/ai/chat`, { query, history });
   return response.data;
@@ -113,7 +119,8 @@ const getAiChatResponse = async (shopId, query, history = []) => {
 
 const streamAiChatResponse = async (shopId, query, history = [], onChunk) => {
   const token = localStorage.getItem("token");
-  const response = await fetch(`/api/shops/${shopId}/ai/chat`, {
+  const targetUrl = `${getBaseApiUrl()}/api/shops/${shopId}/ai/chat`;
+  const response = await fetch(targetUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

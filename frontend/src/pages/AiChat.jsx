@@ -151,28 +151,56 @@ const AiChat = () => {
         }
         return updated;
       });
-    } catch (error) {
-      console.error("AI Chat Error:", error);
+    } catch (streamError) {
+      console.warn("AI Streaming failed, falling back to standard request:", streamError);
 
-      const userFriendlyMessage =
-        error.message ||
-        "I'm having trouble analyzing the store data right now. Please try again in a moment.";
+      // Fallback: Use standard non-streaming API (via axios with full baseURL)
+      try {
+        const response = await shopService.getAiChatResponse(
+          user.shopId,
+          query,
+          historyPayload
+        );
 
-      const errorMessage = {
-        sender: "ai",
-        text: userFriendlyMessage,
-        isError: true,
-        failedPrompt: query,
-      };
+        const replyText =
+          response.reply || response.answer || "No response received.";
 
-      setMessages((prev) => {
-        if (hasStartedStreaming) {
-          const updated = [...prev];
-          updated[updated.length - 1] = errorMessage;
-          return updated;
-        }
-        return [...prev, errorMessage];
-      });
+        setMessages((prev) => {
+          if (hasStartedStreaming) {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              sender: "ai",
+              text: replyText,
+              isStreaming: false,
+            };
+            return updated;
+          }
+          return [...prev, { sender: "ai", text: replyText }];
+        });
+      } catch (error) {
+        console.error("AI Chat Error (after fallback):", error);
+
+        const userFriendlyMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "I'm having trouble analyzing the store data right now. Please try again in a moment.";
+
+        const errorMessage = {
+          sender: "ai",
+          text: userFriendlyMessage,
+          isError: true,
+          failedPrompt: query,
+        };
+
+        setMessages((prev) => {
+          if (hasStartedStreaming) {
+            const updated = [...prev];
+            updated[updated.length - 1] = errorMessage;
+            return updated;
+          }
+          return [...prev, errorMessage];
+        });
+      }
     } finally {
       setIsLoading(false);
     }

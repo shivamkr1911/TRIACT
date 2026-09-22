@@ -548,15 +548,14 @@ ${topBundles.length > 0 ? topBundles.join("\n") : "No frequent purchase combinat
               initialBuffer += delta;
               // Buffer the first 20 characters to filter out safety classifier outputs
               if (initialBuffer.length >= 20 || initialBuffer.includes("\n")) {
-                if (isInvalidOrSafetyOutput(initialBuffer)) {
-                  console.warn(`[AI Chat] Model ${model} returned safety classification: "${initialBuffer}". Fallback.`);
-                  break;
-                }
-                res.writeHead(200, {
-                  "Content-Type": "text/plain; charset=utf-8",
-                  "Cache-Control": "no-cache, no-transform",
-                  "Connection": "keep-alive",
-                });
+                const origin = req.headers.origin || process.env.FRONTEND_URL || "*";
+                res.setHeader("Access-Control-Allow-Origin", origin);
+                res.setHeader("Access-Control-Allow-Credentials", "true");
+                res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                res.setHeader("Cache-Control", "no-cache, no-transform");
+                res.setHeader("Connection", "keep-alive");
+                res.setHeader("X-Accel-Buffering", "no");
+
                 headersSent = true;
                 streamStarted = true;
                 res.write(initialBuffer);
@@ -570,11 +569,14 @@ ${topBundles.length > 0 ? topBundles.join("\n") : "No frequent purchase combinat
             res.end();
             return;
           } else if (initialBuffer && !isInvalidOrSafetyOutput(initialBuffer)) {
-            res.writeHead(200, {
-              "Content-Type": "text/plain; charset=utf-8",
-              "Cache-Control": "no-cache, no-transform",
-              "Connection": "keep-alive",
-            });
+            const origin = req.headers.origin || process.env.FRONTEND_URL || "*";
+            res.setHeader("Access-Control-Allow-Origin", origin);
+            res.setHeader("Access-Control-Allow-Credentials", "true");
+            res.setHeader("Content-Type", "text/plain; charset=utf-8");
+            res.setHeader("Cache-Control", "no-cache, no-transform");
+            res.setHeader("Connection", "keep-alive");
+            res.setHeader("X-Accel-Buffering", "no");
+
             res.write(initialBuffer);
             res.end();
             return;
