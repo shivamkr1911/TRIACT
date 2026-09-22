@@ -39,20 +39,12 @@ async function handler(req, res) {
   }
 
   try {
-    const products = await Product.find({ shopId }).lean();
-    const orders = await Order.find({ shopId })
-      .sort({ date: -1 })
-      .limit(200)
-      .lean();
-    const employees = await User.find({ shopId, role: "employee" }).lean();
-
-    // 1. Calculate Lifetime Stats using MongoDB Aggregation
-    let lifetimeRevenue = 0;
-    let lifetimeProfit = 0;
-    let lifetimeOrdersCount = orders.length;
-
-    try {
-      const [stats] = await Order.aggregate([
+    // 1. Fetch live data and lifetime aggregation concurrently
+    const [products, orders, employees, aggResult] = await Promise.all([
+      Product.find({ shopId }).lean(),
+      Order.find({ shopId }).sort({ date: -1 }).limit(200).lean(),
+      User.find({ shopId, role: "employee" }).lean(),
+      Order.aggregate([
         { $match: { shopId: new mongoose.Types.ObjectId(shopId) } },
         {
           $group: {
@@ -62,17 +54,13 @@ async function handler(req, res) {
             count: { $sum: 1 },
           },
         },
-      ]);
-      if (stats) {
-        lifetimeRevenue = stats.totalRevenue || 0;
-        lifetimeProfit = stats.totalProfit || 0;
-        lifetimeOrdersCount = stats.count || 0;
-      }
-    } catch (aggErr) {
-      console.warn("[AI Chat] Lifetime aggregation fallback:", aggErr.message);
-      lifetimeRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-      lifetimeProfit = orders.reduce((sum, o) => sum + (o.totalProfit || 0), 0);
-    }
+      ]).catch(() => []),
+    ]);
+
+    const stats = aggResult?.[0];
+    const lifetimeRevenue = stats?.totalRevenue ?? orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const lifetimeProfit = stats?.totalProfit ?? orders.reduce((sum, o) => sum + (o.totalProfit || 0), 0);
+    const lifetimeOrdersCount = stats?.count ?? orders.length;
 
     // 2. Date-based Analytics
     const today = new Date();
@@ -389,6 +377,7 @@ CRITICAL FORMATTING & PRESENTATION RULES:
    - Only call items 🚨 Critical if they are out of stock or selling rapidly with < 7 days of stock left.
 6. When asked about top profit products, provide: Total Profit (₹), Profit Margin (%), Selling Price & Cost, Total Units Sold, and Current Stock Health.
 7. Format all currency in Indian Rupees (₹) with proper comma separators (e.g., ₹28,520, ₹1,240.00).
+8. Keep answers concise, direct, and focused (under 250 words) so responses stream quickly without getting truncated.
 
 === LIVE STORE DATA ===
 
@@ -509,11 +498,11 @@ ${topBundles.length > 0 ? topBundles.join("\n") : "No frequent purchase combinat
     const isStreamRequested = req.body.stream !== false;
 
     const candidateModels = [
+      "openrouter/free",
       "google/gemma-4-31b-it:free",
       "google/gemma-4-26b-a4b-it:free",
       "qwen/qwen3.8-27b:free",
       "z-ai/glm-5.2:free",
-      "openrouter/free",
     ];
 
     const isInvalidOrSafetyOutput = (text) => {
